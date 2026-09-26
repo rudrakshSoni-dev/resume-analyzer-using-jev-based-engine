@@ -1,393 +1,285 @@
 /**
- * JEV Engine Scorer
- *
- * Implements deterministic scoring across 5 core dimensions:
- * 1. Skills Match (40%)
- * 2. Keyword & Vocabulary Relevance (25%)
- * 3. Experience & Seniority Match (20%)
- * 4. Education & Credentials (10%)
- * 5. Structural Completeness (5%)
- *
- * Hard constraint: This file must NOT import Express, Prisma, HTTP types, auth, cookies, or frontend libraries.
+ * JEV Engine Scoring System
+ * Deterministic multi-dimensional scoring algorithms.
+ * Strict Isolation: No external frameworks, databases, or HTTP types allowed.
  */
 
 import {
   AnalyzeResumeInput,
-  AnalyzeResumeOutput,
-  EducationMatchDetails,
-  ExperienceMatchDetails,
-  ExtractedEducation,
-  ExtractedExperience,
-  ExtractedSkills,
-  KeywordRelevanceDetails,
-  ScoreBreakdown,
-  SkillMatchDetails,
-  StructuralCompletenessDetails,
+  AnalyzeResumeResult,
+  SkillsBreakdown,
+  ExperienceBreakdown,
+  RelevanceBreakdown,
+  EducationBreakdown,
+  ScoringBreakdown
 } from './types.js';
 
 import {
-  DEGREE_RANK,
-  extractInformativeKeywords,
-  parseDocument,
-  SENIORITY_RANK,
+  tokenize,
+  extractSkills,
+  extractYearsOfExperience,
+  extractSeniority,
+  extractEducation,
+  computeJaccardSimilarity,
+  SENIORITY_LEVELS
 } from './utils.js';
 
+const WEIGHT_SKILLS = 0.40;
+const WEIGHT_EXPERIENCE = 0.25;
+const WEIGHT_RELEVANCE = 0.20;
+const WEIGHT_EDUCATION = 0.15;
+
 /**
- * Evaluates skill coverage between the resume and job description.
+ * Evaluates skill overlap between Job Description and Resume.
  */
-export function calculateSkillsMatch(
-  resumeSkills: ExtractedSkills,
-  jdSkills: ExtractedSkills
-): SkillMatchDetails {
-  const jdTech = jdSkills.technicalSkills;
-  const resumeTechSet = new Set(resumeSkills.technicalSkills);
+export function scoreSkills(resumeText: string, jdText: string): SkillsBreakdown {
+  const jdSkills = extractSkills(jdText);
+  const resumeSkills = extractSkills(resumeText);
+  const resumeSkillSet = new Set(resumeSkills);
 
-  const matchedTech: string[] = [];
-  const missingTech: string[] = [];
+  if (jdSkills.length === 0) {
+    // If JD has no predefined skills from dictionary, evaluate top technical tokens
+    const jdTokens = tokenize(jdText);
+    const resumeTokens = new Set(tokenize(resumeText));
 
-  for (const skill of jdTech) {
-    if (resumeTechSet.has(skill)) {
-      matchedTech.push(skill);
+    const matchedTokens: string[] = [];
+    const missingTokens: string[] = [];
+
+    for (const token of jdTokens) {
+      if (resumeTokens.has(token)) {
+        if (!matchedTokens.includes(token)) matchedTokens.push(token);
+      } else {
+        if (!missingTokens.includes(token)) missingTokens.push(token);
+      }
+    }
+
+    const total = matchedTokens.length + missingTokens.length;
+    const ratio = total > 0 ? matchedTokens.length / total : 0;
+    const rawScore = Math.round(ratio * 100);
+
+    return {
+      score: Math.min(Math.max(rawScore, 0), 100),
+      weight: WEIGHT_SKILLS,
+      matchedSkills: matchedTokens.slice(0, 10),
+      missingSkills: missingTokens.slice(0, 10),
+      totalRequiredSkills: total
+    };
+  }
+
+  const matchedSkills: string[] = [];
+  const missingSkills: string[] = [];
+
+  for (const skill of jdSkills) {
+    if (resumeSkillSet.has(skill)) {
+      matchedSkills.push(skill);
     } else {
-      missingTech.push(skill);
+      missingSkills.push(skill);
     }
   }
 
-  // Soft skills comparison
-  const jdSoft = jdSkills.softSkills;
-  const resumeSoftSet = new Set(resumeSkills.softSkills);
-  const matchedSoft: string[] = [];
-  const missingSoft: string[] = [];
-
-  for (const skill of jdSoft) {
-    if (resumeSoftSet.has(skill)) {
-      matchedSoft.push(skill);
-    } else {
-      missingSoft.push(skill);
-    }
-  }
-
-  const allMatched = [...matchedTech, ...matchedSoft];
-  const allMissing = [...missingTech, ...missingSoft];
-  const totalExpected = jdTech.length + jdSoft.length;
-
-  let score = 0;
-
-  if (totalExpected === 0) {
-    // If JD doesn't explicitly name known dictionary skills,
-    // evaluate based on resume's demonstrated technical skill breadth
-    const count = resumeSkills.allSkills.length;
-    score = count >= 5 ? 85 : count >= 3 ? 70 : count >= 1 ? 55 : 40;
-  } else {
-    // Weighted: technical skills count for 80% of skills score, soft skills count for 20%
-    const techWeight = jdTech.length > 0 ? (matchedTech.length / jdTech.length) : 1;
-    const softWeight = jdSoft.length > 0 ? (matchedSoft.length / jdSoft.length) : 1;
-
-    let weightedRatio: number;
-    if (jdTech.length > 0 && jdSoft.length > 0) {
-      weightedRatio = 0.8 * techWeight + 0.2 * softWeight;
-    } else if (jdTech.length > 0) {
-      weightedRatio = techWeight;
-    } else {
-      weightedRatio = softWeight;
-    }
-
-    score = Math.round(weightedRatio * 100);
-  }
+  const matchRatio = matchedSkills.length / jdSkills.length;
+  const rawScore = Math.round(matchRatio * 100);
 
   return {
-    score: Math.max(0, Math.min(100, score)),
-    matched: allMatched,
-    missing: allMissing,
-    totalExpected,
+    score: Math.min(Math.max(rawScore, 0), 100),
+    weight: WEIGHT_SKILLS,
+    matchedSkills,
+    missingSkills,
+    totalRequiredSkills: jdSkills.length
   };
 }
 
 /**
- * Computes vocabulary & keyword relevance (TF overlap / Jaccard similarity on non-stopwords).
+ * Evaluates years of experience and seniority level.
  */
-export function calculateKeywordRelevance(
-  resumeTokens: string[],
-  jdTokens: string[]
-): KeywordRelevanceDetails {
-  const resumeKeywords = extractInformativeKeywords(resumeTokens);
-  const jdKeywords = extractInformativeKeywords(jdTokens);
+export function scoreExperience(resumeText: string, jdText: string): ExperienceBreakdown {
+  const reqYears = extractYearsOfExperience(jdText);
+  const candYears = extractYearsOfExperience(resumeText);
+  const reqSeniority = extractSeniority(jdText);
+  const candSeniority = extractSeniority(resumeText);
 
-  if (jdKeywords.length === 0 || resumeKeywords.length === 0) {
+  let yearsScore = 75; // Baseline if neither specifies
+  let levelMatch: ExperienceBreakdown['matchLevel'] = 'neutral';
+
+  if (reqYears !== null && candYears !== null) {
+    if (candYears >= reqYears) {
+      yearsScore = 100;
+      levelMatch = candYears > reqYears ? 'exceeds' : 'exact';
+    } else if (candYears === reqYears - 1) {
+      yearsScore = 80;
+      levelMatch = 'partial';
+    } else if (candYears >= Math.floor(reqYears / 2)) {
+      yearsScore = 55;
+      levelMatch = 'partial';
+    } else {
+      yearsScore = 25;
+      levelMatch = 'underqualified';
+    }
+  } else if (reqYears !== null && candYears === null) {
+    // JD specifies years, resume doesn't explicitly state "X years"
+    yearsScore = 45;
+    levelMatch = 'partial';
+  } else if (reqYears === null && candYears !== null) {
+    yearsScore = 90;
+    levelMatch = 'exceeds';
+  }
+
+  // Factor in seniority title matching
+  let seniorityScore = 75;
+  if (reqSeniority && candSeniority) {
+    const reqLevel = SENIORITY_LEVELS.find(l => l.level === reqSeniority);
+    const candLevel = SENIORITY_LEVELS.find(l => l.level === candSeniority);
+
+    if (reqLevel && candLevel) {
+      if (candLevel.weight >= reqLevel.weight) {
+        seniorityScore = 100;
+      } else {
+        const diff = reqLevel.weight - candLevel.weight;
+        seniorityScore = Math.max(30, 100 - diff * 30);
+      }
+    }
+  } else if (reqSeniority && !candSeniority) {
+    seniorityScore = 50;
+  }
+
+  const combinedScore = Math.round((yearsScore * 0.6) + (seniorityScore * 0.4));
+
+  return {
+    score: Math.min(Math.max(combinedScore, 0), 100),
+    weight: WEIGHT_EXPERIENCE,
+    requiredYears: reqYears,
+    extractedYears: candYears,
+    requiredSeniority: reqSeniority,
+    detectedSeniority: candSeniority,
+    matchLevel: levelMatch
+  };
+}
+
+/**
+ * Evaluates semantic relevance and keyword density.
+ */
+export function scoreRelevance(resumeText: string, jdText: string): RelevanceBreakdown {
+  const resumeTokens = tokenize(resumeText);
+  const jdTokens = tokenize(jdText);
+
+  if (resumeTokens.length === 0 || jdTokens.length === 0) {
     return {
       score: 0,
-      commonKeywords: [],
-      similarityIndex: 0,
+      weight: WEIGHT_RELEVANCE,
+      tokenOverlapRatio: 0,
+      matchedKeywords: []
     };
   }
 
-  const resumeFreq = new Map<string, number>();
-  for (const w of resumeKeywords) {
-    resumeFreq.set(w, (resumeFreq.get(w) || 0) + 1);
-  }
+  const jaccard = computeJaccardSimilarity(resumeTokens, jdTokens);
 
-  const jdFreq = new Map<string, number>();
-  for (const w of jdKeywords) {
-    jdFreq.set(w, (jdFreq.get(w) || 0) + 1);
-  }
-
-  const commonKeywords: string[] = [];
-  let dotProduct = 0;
-  let jdMagnitudeSq = 0;
-  let resumeMagnitudeSq = 0;
-
-  // Cosine similarity on informative keyword vectors
-  for (const [word, jdCount] of jdFreq.entries()) {
-    jdMagnitudeSq += jdCount * jdCount;
-    const resCount = resumeFreq.get(word) || 0;
-    if (resCount > 0) {
-      dotProduct += jdCount * resCount;
-      commonKeywords.push(word);
+  // Find top matching keywords
+  const resumeTokenSet = new Set(resumeTokens);
+  const matchedTokens = new Set<string>();
+  for (const token of jdTokens) {
+    if (resumeTokenSet.has(token)) {
+      matchedTokens.add(token);
     }
   }
 
-  for (const [, resCount] of resumeFreq.entries()) {
-    resumeMagnitudeSq += resCount * resCount;
-  }
-
-  const denominator = Math.sqrt(jdMagnitudeSq) * Math.sqrt(resumeMagnitudeSq);
-  const cosineSim = denominator > 0 ? (dotProduct / denominator) : 0;
-
-  // Keyword coverage ratio in JD
-  const jdUniqueCount = jdFreq.size;
-  const matchedUniqueCount = commonKeywords.length;
-  const coverageRatio = jdUniqueCount > 0 ? (matchedUniqueCount / jdUniqueCount) : 0;
-
-  // Combined keyword score: 50% vector similarity + 50% keyword coverage
-  const combinedMetric = 0.5 * cosineSim + 0.5 * coverageRatio;
-  const score = Math.round(Math.min(100, combinedMetric * 130)); // 1.3 scaling factor for natural ATS threshold
+  // Jaccard for text typically ranges from 0.05 to 0.40 in domain-matching text
+  // Scale dynamically to 0-100 curve
+  const scaledScore = Math.min(Math.round((jaccard / 0.35) * 100), 100);
 
   return {
-    score: Math.max(0, Math.min(100, score)),
-    commonKeywords: commonKeywords.slice(0, 30),
-    similarityIndex: Math.round(cosineSim * 100) / 100,
+    score: scaledScore,
+    weight: WEIGHT_RELEVANCE,
+    tokenOverlapRatio: Math.round(jaccard * 100) / 100,
+    matchedKeywords: Array.from(matchedTokens).slice(0, 15)
   };
 }
 
 /**
- * Computes experience duration and seniority alignment.
+ * Evaluates educational degrees and academic background.
  */
-export function calculateExperienceMatch(
-  resumeExp: ExtractedExperience,
-  jdExp: ExtractedExperience
-): ExperienceMatchDetails {
-  const reqYears = jdExp.years;
-  const candYears = resumeExp.years;
-  const reqSeniority = jdExp.highestSeniority;
-  const candSeniority = resumeExp.highestSeniority;
+export function scoreEducation(resumeText: string, jdText: string): EducationBreakdown {
+  const reqDegrees = extractEducation(jdText);
+  const candDegrees = extractEducation(resumeText);
 
-  let yearsScore = 100;
+  const degreeRank: Record<string, number> = {
+    phd: 4,
+    master: 3,
+    bachelor: 2,
+    associate: 1
+  };
 
-  if (reqYears !== null && reqYears > 0) {
-    if (candYears === null || candYears === 0) {
-      yearsScore = 30; // Candidate experience could not be reliably extracted from text
-    } else if (candYears >= reqYears) {
-      yearsScore = 100;
-    } else if (candYears >= reqYears * 0.8) {
-      yearsScore = 85;
-    } else if (candYears >= reqYears * 0.5) {
-      yearsScore = 65;
+  let score = 75; // Baseline default if JD has no degree requirement
+  let matchedDegrees: string[] = [];
+
+  if (reqDegrees.length > 0) {
+    const highestReq = Math.max(...reqDegrees.map(d => degreeRank[d] || 0));
+    const highestCand = candDegrees.length > 0 ? Math.max(...candDegrees.map(d => degreeRank[d] || 0)) : 0;
+
+    matchedDegrees = candDegrees.filter(d => reqDegrees.includes(d));
+
+    if (highestCand >= highestReq && highestCand > 0) {
+      score = 100;
+    } else if (highestCand > 0 && highestCand < highestReq) {
+      score = 65;
     } else {
-      yearsScore = Math.max(20, Math.round((candYears / reqYears) * 60));
+      // Required degree but candidate has none found
+      score = 30;
     }
-  } else {
-    // If JD doesn't state explicit years required, give score based on candidate having experience
-    yearsScore = candYears !== null && candYears > 0 ? 90 : 75;
+  } else if (candDegrees.length > 0) {
+    // No specific requirement but candidate holds higher education
+    score = 90;
+    matchedDegrees = candDegrees;
   }
-
-  // Seniority alignment
-  let seniorityScore = 100;
-  let seniorityMatch = true;
-
-  if (reqSeniority) {
-    const reqRank = SENIORITY_RANK[reqSeniority] ?? 2;
-    const candRank = candSeniority ? (SENIORITY_RANK[candSeniority] ?? 1) : (candYears && candYears >= 5 ? 3 : 1);
-
-    if (candRank >= reqRank) {
-      seniorityScore = 100;
-      seniorityMatch = true;
-    } else if (candRank === reqRank - 1) {
-      seniorityScore = 75;
-      seniorityMatch = false;
-    } else {
-      seniorityScore = 50;
-      seniorityMatch = false;
-    }
-  }
-
-  const finalScore = Math.round(0.7 * yearsScore + 0.3 * seniorityScore);
 
   return {
-    score: Math.max(0, Math.min(100, finalScore)),
-    requiredYears: reqYears,
-    candidateYears: candYears,
-    seniorityMatch,
-    requiredSeniority: reqSeniority,
-    candidateSeniority: candSeniority,
+    score: Math.min(Math.max(score, 0), 100),
+    weight: WEIGHT_EDUCATION,
+    requiredDegree: reqDegrees.length > 0 ? reqDegrees[0] : null,
+    detectedDegrees: candDegrees,
+    matchedDegrees
   };
 }
 
 /**
- * Computes educational degree and credential alignment.
+ * Computes composite resume score (0–100) based on weighted multi-dimensional evaluation.
  */
-export function calculateEducationMatch(
-  resumeEdu: ExtractedEducation,
-  jdEdu: ExtractedEducation
-): EducationMatchDetails {
-  const reqDegree = jdEdu.highestDegree;
-  const candDegree = resumeEdu.highestDegree;
-
-  if (!reqDegree) {
-    // JD has no strict degree requirements
-    const score = candDegree ? 95 : 80;
-    return {
-      score,
-      requiredLevel: null,
-      candidateLevel: candDegree,
-      meetsRequirement: true,
-    };
-  }
-
-  const reqRank = DEGREE_RANK[reqDegree] ?? 2;
-  const candRank = candDegree ? (DEGREE_RANK[candDegree] ?? 0) : 0;
-
-  let score = 0;
-  let meetsRequirement = false;
-
-  if (candRank >= reqRank) {
-    score = 100;
-    meetsRequirement = true;
-  } else if (candRank === reqRank - 1) {
-    score = 75;
-    meetsRequirement = false;
-  } else if (candRank > 0) {
-    score = 50;
-    meetsRequirement = false;
-  } else {
-    score = 30;
-    meetsRequirement = false;
-  }
-
-  return {
-    score,
-    requiredLevel: reqDegree,
-    candidateLevel: candDegree,
-    meetsRequirement,
-  };
-}
-
-/**
- * Checks presence of standard structural resume sections.
- */
-export function calculateStructuralCompleteness(
-  sectionsFound: string[]
-): StructuralCompletenessDetails {
-  const expectedSections = ['experience', 'skills', 'education', 'projects', 'summary'];
-  const foundSet = new Set(sectionsFound);
-
-  const matched: string[] = [];
-  const missing: string[] = [];
-
-  for (const s of expectedSections) {
-    if (foundSet.has(s)) {
-      matched.push(s);
-    } else {
-      missing.push(s);
-    }
-  }
-
-  // Experience, Skills, and Education are core (80%), Projects and Summary are bonus (20%)
-  const hasCoreExp = foundSet.has('experience') ? 30 : 0;
-  const hasCoreSkills = foundSet.has('skills') ? 30 : 0;
-  const hasCoreEdu = foundSet.has('education') ? 20 : 0;
-  const hasProjects = foundSet.has('projects') ? 10 : 0;
-  const hasSummary = foundSet.has('summary') ? 10 : 0;
-
-  const score = hasCoreExp + hasCoreSkills + hasCoreEdu + hasProjects + hasSummary;
-
-  return {
-    score: Math.max(0, Math.min(100, score)),
-    sectionsFound: matched,
-    missingSections: missing,
-  };
-}
-
-/**
- * Main Pure Scoring Function
- *
- * Analyzes resume against job description and computes a 0–100 score.
- */
-export function analyzeResume(input: AnalyzeResumeInput): AnalyzeResumeOutput {
+export function calculateScore(input: AnalyzeResumeInput): AnalyzeResumeResult {
   const { resume, jobDescription } = input;
 
-  // Handle empty or whitespace inputs gracefully
-  if (!resume || !jobDescription || resume.trim().length === 0 || jobDescription.trim().length === 0) {
+  // Handle empty or blank inputs
+  if (!resume || !jobDescription || !resume.trim() || !jobDescription.trim()) {
+    const emptyBreakdown: ScoringBreakdown = {
+      skills: { score: 0, weight: WEIGHT_SKILLS, matchedSkills: [], missingSkills: [], totalRequiredSkills: 0 },
+      experience: { score: 0, weight: WEIGHT_EXPERIENCE, requiredYears: null, extractedYears: null, requiredSeniority: null, detectedSeniority: null, matchLevel: 'neutral' },
+      relevance: { score: 0, weight: WEIGHT_RELEVANCE, tokenOverlapRatio: 0, matchedKeywords: [] },
+      education: { score: 0, weight: WEIGHT_EDUCATION, requiredDegree: null, detectedDegrees: [], matchedDegrees: [] }
+    };
     return {
       score: 0,
-      breakdown: {
-        skillsMatch: { score: 0, matched: [], missing: [], totalExpected: 0 },
-        keywordRelevance: { score: 0, commonKeywords: [], similarityIndex: 0 },
-        experienceMatch: {
-          score: 0,
-          requiredYears: null,
-          candidateYears: null,
-          seniorityMatch: false,
-          requiredSeniority: null,
-          candidateSeniority: null,
-        },
-        educationMatch: {
-          score: 0,
-          requiredLevel: null,
-          candidateLevel: null,
-          meetsRequirement: false,
-        },
-        structuralCompleteness: {
-          score: 0,
-          sectionsFound: [],
-          missingSections: ['experience', 'skills', 'education', 'projects', 'summary'],
-        },
-      },
+      breakdown: emptyBreakdown
     };
   }
 
-  // Parse structured data from both documents
-  const resumeData = parseDocument(resume);
-  const jdData = parseDocument(jobDescription);
+  const skills = scoreSkills(resume, jobDescription);
+  const experience = scoreExperience(resume, jobDescription);
+  const relevance = scoreRelevance(resume, jobDescription);
+  const education = scoreEducation(resume, jobDescription);
 
-  // Calculate scores for each dimension
-  const skillsMatch = calculateSkillsMatch(resumeData.skills, jdData.skills);
-  const keywordRelevance = calculateKeywordRelevance(resumeData.tokens, jdData.tokens);
-  const experienceMatch = calculateExperienceMatch(resumeData.experience, jdData.experience);
-  const educationMatch = calculateEducationMatch(resumeData.education, jdData.education);
-  const structuralCompleteness = calculateStructuralCompleteness(resumeData.sections);
+  const weightedTotal =
+    (skills.score * WEIGHT_SKILLS) +
+    (experience.score * WEIGHT_EXPERIENCE) +
+    (relevance.score * WEIGHT_RELEVANCE) +
+    (education.score * WEIGHT_EDUCATION);
 
-  // Compute composite score using the weighted formula:
-  // 40% Skills + 25% Keywords + 20% Experience + 10% Education + 5% Structure
-  const compositeScore =
-    0.40 * skillsMatch.score +
-    0.25 * keywordRelevance.score +
-    0.20 * experienceMatch.score +
-    0.10 * educationMatch.score +
-    0.05 * structuralCompleteness.score;
-
-  // Strictly clamp to [0, 100] and round to integer
-  const finalScore = Math.max(0, Math.min(100, Math.round(compositeScore)));
-
-  const breakdown: ScoreBreakdown = {
-    skillsMatch,
-    keywordRelevance,
-    experienceMatch,
-    educationMatch,
-    structuralCompleteness,
-  };
+  const finalScore = Math.min(Math.max(Math.round(weightedTotal), 0), 100);
 
   return {
     score: finalScore,
-    breakdown,
+    breakdown: {
+      skills,
+      experience,
+      relevance,
+      education
+    }
   };
 }

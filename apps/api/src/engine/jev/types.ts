@@ -1,7 +1,7 @@
 /**
  * JEV Engine Types
- *
- * Hard constraint: This file must NOT import Express, Prisma, HTTP types, auth, cookies, or frontend libraries.
+ * Pure TypeScript interfaces for resume analysis scoring.
+ * Strict Isolation: No external frameworks, databases, or HTTP types allowed.
  */
 
 export interface AnalyzeResumeInput {
@@ -9,78 +9,47 @@ export interface AnalyzeResumeInput {
   jobDescription: string;
 }
 
-export interface SkillMatchDetails {
-  score: number;
-  matched: string[];
-  missing: string[];
-  totalExpected: number;
+export interface SkillsBreakdown {
+  score: number; // 0–100
+  weight: number; // e.g., 0.40
+  matchedSkills: string[];
+  missingSkills: string[];
+  totalRequiredSkills: number;
 }
 
-export interface KeywordRelevanceDetails {
-  score: number;
-  commonKeywords: string[];
-  similarityIndex: number;
-}
-
-export interface ExperienceMatchDetails {
-  score: number;
+export interface ExperienceBreakdown {
+  score: number; // 0–100
+  weight: number; // e.g., 0.25
   requiredYears: number | null;
-  candidateYears: number | null;
-  seniorityMatch: boolean;
+  extractedYears: number | null;
   requiredSeniority: string | null;
-  candidateSeniority: string | null;
+  detectedSeniority: string | null;
+  matchLevel: 'exact' | 'exceeds' | 'partial' | 'underqualified' | 'neutral';
 }
 
-export interface EducationMatchDetails {
-  score: number;
-  requiredLevel: string | null;
-  candidateLevel: string | null;
-  meetsRequirement: boolean;
+export interface RelevanceBreakdown {
+  score: number; // 0–100
+  weight: number; // e.g., 0.20
+  tokenOverlapRatio: number;
+  matchedKeywords: string[];
 }
 
-export interface StructuralCompletenessDetails {
-  score: number;
-  sectionsFound: string[];
-  missingSections: string[];
+export interface EducationBreakdown {
+  score: number; // 0–100
+  weight: number; // e.g., 0.15
+  requiredDegree: string | null;
+  detectedDegrees: string[];
+  matchedDegrees: string[];
 }
 
-export interface ScoreBreakdown {
-  skillsMatch: SkillMatchDetails;
-  keywordRelevance: KeywordRelevanceDetails;
-  experienceMatch: ExperienceMatchDetails;
-  educationMatch: EducationMatchDetails;
-  structuralCompleteness: StructuralCompletenessDetails;
+export interface ScoringBreakdown {
+  skills: SkillsBreakdown;
+  experience: ExperienceBreakdown;
+  relevance: RelevanceBreakdown;
+  education: EducationBreakdown;
 }
 
-export interface AnalyzeResumeOutput {
-  score: number;
-  breakdown?: ScoreBreakdown;
-}
-
-export interface ExtractedSkills {
-  technicalSkills: string[];
-  softSkills: string[];
-  allSkills: string[];
-}
-
-export interface ExtractedExperience {
-  years: number | null;
-  seniorityLevels: string[];
-  highestSeniority: string | null;
-}
-
-export interface ExtractedEducation {
-  highestDegree: string | null;
-  degreesFound: string[];
-  fieldsOfStudy: string[];
-}
-
-export interface ExtractedDocumentData {
-  cleanText: string;
-  tokens: string[];
-  ngrams: string[];
-  skills: ExtractedSkills;
-  experience: ExtractedExperience;
-  education: ExtractedEducation;
-  sections: string[];
+export interface AnalyzeResumeResult {
+  score: number; // 0–100 (integer)
+  breakdown: ScoringBreakdown;
 }

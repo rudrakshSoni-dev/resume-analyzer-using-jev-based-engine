@@ -7,7 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/engine/jev/jev.test.ts",
+    "test:jev": "tsx --test src/engine/jev/jev.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
