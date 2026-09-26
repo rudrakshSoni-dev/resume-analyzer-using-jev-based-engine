@@ -36,3 +36,24 @@ export interface ResumeSummaryDto {
   updatedAt: string;
 }
 
+export interface JobDescriptionDto {
+  id: string;
+  userId: string;
+  title: string;
+  company?: string | null;
+  description: string;
+  createdAt: string;
+}
+
+export interface JobDescriptionSummaryDto {
+  id: string;
+  title: string;
+  company?: string | null;
+  createdAt: string;
+}
+
+export interface CreateJobDescriptionInput {
+  title: string;
+  company?: string;
+  description: string;
+}

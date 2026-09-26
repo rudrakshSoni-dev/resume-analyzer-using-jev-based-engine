@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phase 0, Phase 1, Phase 2, and Phase 3 Complete ✓  
-**Next Active Phase**: **Phase 4 — Job Descriptions**
+**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, and Phase 4 Complete ✓  
+**Next Active Phase**: **Phase 5 — JEV Engine (Isolated Module)**
 
 ---
 
@@ -13,8 +13,8 @@
 | **Phase 1** | Database Schema (Prisma + Neon) | ✅ Complete | Schema models (`User`, `Resume`, `JobDescription`, `Analysis`) & migration applied |
 | **Phase 2** | Authentication API | ✅ Complete | JWT HTTP-only cookies, register/login/me/logout, `passwordHash` hidden, `test-auth.sh` |
 | **Phase 3** | Resume Upload API | ✅ Complete | Multer PDF upload, text extraction, user scoping, ownership checks, `test-resume.sh` |
-| **Phase 4** | Job Descriptions API | ⏳ **Next Up** | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping |
-| **Phase 5** | JEV Scoring Engine | ⏳ Pending | Isolated pure scoring function, zero framework dependencies, unit tests |
+| **Phase 4** | Job Descriptions API | ✅ Complete | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping, ownership checks, `test-job.sh` |
+| **Phase 5** | JEV Scoring Engine | ⏳ **Next Up** | Isolated pure scoring function, zero framework dependencies, unit tests |
 | **Phase 6** | Analysis API | ⏳ Pending | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis` |
 | **Phase 7** | Frontend: Auth & Dashboard | ⏳ Pending | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist) |
 | **Phase 8** | End-to-End Wiring Pass | ⏳ Pending | 14-step Definition of Done verification, end-to-end integration |
@@ -93,17 +93,32 @@ Implemented per `CLAUDE.md` section 7 and verified:
 
 ---
 
-## ⏳ NEXT STEP — Phase 4: Job Descriptions
+## ✅ Phase 4 — Job Descriptions
 
-**Goal:** Implement CRUD for Job Descriptions with the same user-scoping and ownership patterns as resumes.
+Implemented per `CLAUDE.md` section 8 and verified:
+
+**Endpoints:**
+- `POST /api/jobs` — Protected by `authMiddleware`, validates payload with Zod (`title`, optional `company`, `description`), creates job description scoped to `req.user.id` (returns HTTP 201)
+- `GET /api/jobs` — Lists all job descriptions owned by authenticated user ordered by `createdAt` descending (returns HTTP 200)
+- `GET /api/jobs/:id` — Retrieves a single job description by ID with strict ownership check (returns HTTP 200 or HTTP 404)
+- `DELETE /api/jobs/:id` — Deletes a job description with strict ownership check (returns HTTP 200 or HTTP 404)
+
+**Architecture & Security:**
+- Controller -> Service -> Prisma architecture maintained (`job.controller.ts`, `job.service.ts`, `job.routes.ts`)
+- Validation schema created in `apps/api/src/utils/validation.ts` (`createJobDescriptionSchema`)
+- Shared TypeScript types added to `packages/shared/src/index.ts` (`JobDescriptionDto`, `JobDescriptionSummaryDto`, `CreateJobDescriptionInput`)
+- Strict ownership isolation enforced: all queries are filtered by `userId: req.user.id`
+- Comprehensive test scripts at `apps/api/test-phase4.sh` / `apps/api/test-job.sh` pass 100% (validates creation, listing, individual retrieval, cross-user isolation, cross-user delete prevention, input validation, unauthenticated rejection, deletion verification)
+
+---
+
+## ⏳ NEXT STEP — Phase 5: JEV Engine (Isolated Module)
+
+**Goal:** Implement a pure, deterministic, framework-free scoring function.
 
 ### Requirements per CLAUDE.md:
-1. **POST /api/jobs**
-   - Create a new job description (`title`, `company` (optional/required), `description`)
-   - Scoped strictly to `req.user.id`
-2. **GET /api/jobs**
-   - List all job descriptions owned by authenticated user
-3. **DELETE /api/jobs/:id**
-   - Delete job description ensuring user ownership
-4. **Ownership Verification**:
-   - Verify that user B cannot fetch, list, or delete user A's job descriptions (HTTP 404).
+1. **Location**: `apps/api/src/engine/jev/` (`index.ts`, `scorer.ts`, `types.ts`, `utils.ts`)
+2. **Contract**: `analyzeResume({ resume, jobDescription }) -> { score }` (returns score 0–100)
+3. **Hard Isolation Constraint**: Must not import Express, Prisma, HTTP types, auth, cookies, or frontend code. Takes plain strings and returns a number.
+4. **Scoring Logic**: Keyword/skill matching, experience matching, etc.
+5. **Unit Tests**: Standalone unit tests running against `analyzeResume()` in total isolation (no database or running API needed).

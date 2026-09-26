@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import resumeRoutes from './routes/resume.routes.js';
+import jobRoutes from './routes/job.routes.js';
 
 dotenv.config();
 
@@ -25,6 +26,9 @@ app.use('/api/auth', authRoutes);
 
 // Resume routes
 app.use('/api/resumes', resumeRoutes);
+
+// Job routes
+app.use('/api/jobs', jobRoutes);
 
 // Centralized error handler (must be last middleware)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
