@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
+import resumeRoutes from './routes/resume.routes.js';
 
 dotenv.config();
 
@@ -21,6 +22,9 @@ app.get('/api/health', (req, res) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Resume routes
+app.use('/api/resumes', resumeRoutes);
 
 // Centralized error handler (must be last middleware)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

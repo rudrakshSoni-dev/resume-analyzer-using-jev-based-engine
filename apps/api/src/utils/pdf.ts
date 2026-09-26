@@ -1,8 +1,8 @@
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 
 export interface ExtractedPdf {
   text: string;
-  numpages: number;
+  numpages?: number;
 }
 
 /**
@@ -10,8 +10,9 @@ export interface ExtractedPdf {
  * Cleans control characters and validates non-empty text.
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: buffer });
   try {
-    const data = await pdfParse(buffer);
+    const data = await parser.getText();
     const cleanedText = data.text
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
@@ -32,5 +33,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     const error: any = new Error(`Failed to parse PDF: ${err.message || 'Invalid or corrupted file'}`);
     error.statusCode = 400;
     throw error;
+  } finally {
+    await parser.destroy();
   }
 }

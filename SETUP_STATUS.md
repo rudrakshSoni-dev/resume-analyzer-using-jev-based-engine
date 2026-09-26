@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phase 0, Phase 1, and Phase 2 Complete ✓  
-**Next Active Phase**: **Phase 3 — Resume Upload**
+**Current Status**: Phase 0, Phase 1, Phase 2, and Phase 3 Complete ✓  
+**Next Active Phase**: **Phase 4 — Job Descriptions**
 
 ---
 
@@ -12,8 +12,8 @@
 | **Phase 0** | Monorepo & Environment Setup | ✅ Complete | Workspaces, TypeScript, Next.js, Express, Shared packages pass typecheck |
 | **Phase 1** | Database Schema (Prisma + Neon) | ✅ Complete | Schema models (`User`, `Resume`, `JobDescription`, `Analysis`) & migration applied |
 | **Phase 2** | Authentication API | ✅ Complete | JWT HTTP-only cookies, register/login/me/logout, `passwordHash` hidden, `test-auth.sh` |
-| **Phase 3** | Resume Upload API | ⏳ **Next Up** | Multer PDF upload, text extraction, user scoping, ownership checks |
-| **Phase 4** | Job Descriptions API | ⏳ Pending | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping |
+| **Phase 3** | Resume Upload API | ✅ Complete | Multer PDF upload, text extraction, user scoping, ownership checks, `test-resume.sh` |
+| **Phase 4** | Job Descriptions API | ⏳ **Next Up** | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping |
 | **Phase 5** | JEV Scoring Engine | ⏳ Pending | Isolated pure scoring function, zero framework dependencies, unit tests |
 | **Phase 6** | Analysis API | ⏳ Pending | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis` |
 | **Phase 7** | Frontend: Auth & Dashboard | ⏳ Pending | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist) |
@@ -72,23 +72,38 @@ Implemented per `CLAUDE.md` sections 6 and 12:
 - `passwordHash` is never exposed in any API response
 - `authMiddleware` validates JWT from cookies and sets `req.user = { id }`
 - Centralized error handler produces `{ error: { message } }`
-- Comprehensive test script created at `apps/api/test-auth.sh`
+- Comprehensive test script at `apps/api/test-auth.sh` passes 100%
 
 ---
 
-## ⏳ NEXT STEP — Phase 3: Resume Upload
+## ✅ Phase 3 — Resume Upload
 
-**Goal:** Allow authenticated users to upload PDF resumes, extract the raw text, and store it scoped to their `userId`.
+Implemented per `CLAUDE.md` section 7 and verified:
+
+**Endpoints:**
+- `POST /api/resumes` — Protected by `authMiddleware`, parses multipart form-data via Multer (field: `resume`), validates PDF mime/extension and 5MB limit, extracts raw text via `pdf-parse`, stores resume scoped to `req.user.id`
+- `GET /api/resumes` — Lists all resumes owned by authenticated user
+- `GET /api/resumes/:id` — Retrieves a single resume with strict user ownership validation (returns 404 if not found or owned by another user)
+- `DELETE /api/resumes/:id` — Deletes a single resume ensuring user ownership
+
+**Architecture & Security:**
+- Text extraction logic kept isolated in `apps/api/src/utils/pdf.ts` (not in JEV engine folder)
+- Multer file size limit enforced (max 5MB) and rejects non-PDF files with HTTP 400
+- Comprehensive ownership isolation test script at `apps/api/test-resume.sh` passes 100%
+
+---
+
+## ⏳ NEXT STEP — Phase 4: Job Descriptions
+
+**Goal:** Implement CRUD for Job Descriptions with the same user-scoping and ownership patterns as resumes.
 
 ### Requirements per CLAUDE.md:
-1. **POST /api/resumes**
-   - Multer middleware with `multipart/form-data` and field name `"resume"`
-   - File validation: PDF only (`application/pdf`) and enforce size limit (max 5MB)
-   - Extract raw text from PDF and save in `Resume.rawText`
+1. **POST /api/jobs**
+   - Create a new job description (`title`, `company` (optional/required), `description`)
    - Scoped strictly to `req.user.id`
-2. **GET /api/resumes**
-   - List resumes owned by the authenticated user
-3. **Hard Constraint**:
-   - Do not place any PDF parsing or extraction logic into the future JEV engine folder (`apps/api/src/engine/jev/`).
+2. **GET /api/jobs**
+   - List all job descriptions owned by authenticated user
+3. **DELETE /api/jobs/:id**
+   - Delete job description ensuring user ownership
 4. **Ownership Verification**:
-   - Ensure users cannot access or view another user's uploaded resumes.
+   - Verify that user B cannot fetch, list, or delete user A's job descriptions (HTTP 404).
