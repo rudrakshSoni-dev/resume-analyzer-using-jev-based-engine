@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+CLAUDE.md
+SETUP_STATUS.md
+
 # Build outputs
 dist/
 build/

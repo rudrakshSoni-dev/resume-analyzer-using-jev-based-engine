@@ -57,3 +57,30 @@ export interface CreateJobDescriptionInput {
   company?: string;
   description: string;
 }
+
+export interface AnalyzeResumeInput {
+  resume: string;
+  jobDescription: string;
+}
+
+export interface AnalyzeResumeOutput {
+  score: number;
+}
+
+export interface AnalysisDto {
+  id: string;
+  userId: string;
+  resumeId: string;
+  jobDescriptionId: string;
+  score: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalysisSummaryDto {
+  id: string;
+  resumeId: string;
+  jobDescriptionId: string;
+  score: number;
+  createdAt: string;
+}
