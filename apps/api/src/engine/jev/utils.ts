@@ -41,8 +41,22 @@ export const KNOWN_SKILLS = [
   'numpy', 'nlp', 'llm', 'data engineering', 'spark', 'hadoop', 'airflow', 'dbt',
   // Concepts & Architecture
   'system design', 'distributed systems', 'agile', 'scrum', 'unit testing', 'integration testing',
-  'tdd', 'security', 'oauth', 'jwt', 'mvc', 'clean architecture', 'solid'
+  'tdd', 'security', 'oauth', 'jwt', 'mvc', 'clean architecture', 'solid principles'
 ];
+
+/**
+ * Related skill families for partial credit across transferable technologies.
+ */
+export const RELATED_SKILLS: Record<string, string[]> = {
+  typescript: ['javascript', 'nodejs'],
+  javascript: ['typescript', 'nodejs', 'react', 'next.js'],
+  nodejs: ['javascript', 'typescript', 'express'],
+  express: ['nodejs', 'javascript', 'typescript'],
+  react: ['javascript', 'typescript', 'next.js', 'html', 'css'],
+  'next.js': ['react', 'javascript', 'typescript'],
+  postgresql: ['sql', 'mysql', 'sqlite'],
+  docker: ['kubernetes', 'ci/cd']
+};
 
 /**
  * Normalizes text: converts to lowercase, handles hyphenation/slashes, cleans excessive whitespace.
@@ -58,6 +72,21 @@ export function normalizeText(text: string): string {
 }
 
 /**
+ * Simple suffix stemmer to unify common inflections (e.g., developer/development, applications/application).
+ */
+export function stemToken(token: string): string {
+  if (token.length <= 4) return token;
+  if (token.endsWith('ing') && token.length > 5) return token.slice(0, -3);
+  if (token.endsWith('tion') && token.length > 6) return token.slice(0, -4);
+  if (token.endsWith('ment') && token.length > 6) return token.slice(0, -4);
+  if (token.endsWith('ies') && token.length > 5) return token.slice(0, -3) + 'y';
+  if (token.endsWith('ed') && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith('es') && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0, -1);
+  return token;
+}
+
+/**
  * Tokenizes text into individual words, removing punctuation and short tokens.
  */
 export function tokenize(text: string): string[] {
@@ -67,7 +96,8 @@ export function tokenize(text: string): string[] {
   return normalized
     .split(/[\s,;:!?()\[\]{}"]+/)
     .map(token => token.replace(/^[^\w+#]+|[^\w+#]+$/g, ''))
-    .filter(token => token.length > 1 && !STOPWORDS.has(token));
+    .filter(token => token.length > 1 && !STOPWORDS.has(token))
+    .map(token => stemToken(token));
 }
 
 /**
@@ -147,7 +177,7 @@ export function extractYearsOfExperience(text: string): number | null {
  * Extracts seniority levels indicated in text.
  */
 export const SENIORITY_LEVELS = [
-  { level: 'lead', weight: 4, keywords: ['lead', 'tech lead', 'team lead', 'principal', 'staff', 'architect'] },
+  { level: 'lead', weight: 4, keywords: ['lead', 'tech lead', 'team lead', 'principal', 'staff engineer', 'staff developer', 'staff architect', 'architect'] },
   { level: 'senior', weight: 3, keywords: ['senior', 'sr.', 'sr', 'advanced'] },
   { level: 'mid', weight: 2, keywords: ['mid-level', 'intermediate', 'experienced', 'mid'] },
   { level: 'junior', weight: 1, keywords: ['junior', 'jr.', 'jr', 'entry-level', 'graduate', 'intern', 'associate'] },

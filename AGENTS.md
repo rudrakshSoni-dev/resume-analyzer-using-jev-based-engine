@@ -6,6 +6,28 @@ before moving on. Don't let Claude jump ahead to Phase 5 while Phase 2 is
 still shaky — the ownership bugs in this app (leaking another user's resume)
 come from skipping verification, not from bad code generation.
 
+## Coding Reliability Rules
+
+- Never assume a file, function, API, dependency, database column, environment
+  variable, or configuration option exists. Inspect the repository first.
+- Before modifying code, read the relevant files and understand the existing
+  implementation.
+- Search the codebase for existing patterns before introducing new ones.
+- Do not invent library APIs. If uncertain, explicitly say you are uncertain
+  and verify using available documentation/tools.
+- Prefer minimal changes over large rewrites.
+- Do not modify unrelated files.
+- After making changes:
+  1. run the relevant type checker/compiler,
+  2. run linting,
+  3. run relevant tests,
+  4. inspect failures,
+  5. fix failures before claiming completion.
+- Never claim that code works unless it has actually been validated.
+- If validation cannot be performed, state exactly what remains unverified.
+- When requirements are ambiguous and different interpretations would
+  materially change the implementation, ask before proceeding.
+
 **Rule for every phase:** Plan Mode first (`Shift+Tab` twice, or `/plan`), review
 the plan, approve, execute, then run typecheck + tests before starting the next
 phase.

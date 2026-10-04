@@ -16,6 +16,12 @@ export const createJobDescriptionSchema = z.object({
   description: z.string().trim().min(1, 'Job description is required'),
 });
 
+export const createAnalysisSchema = z.object({
+  resumeId: z.string().trim().min(1, 'Resume ID is required'),
+  jobDescriptionId: z.string().trim().min(1, 'Job description ID is required'),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateJobDescriptionInput = z.infer<typeof createJobDescriptionSchema>;
+export type CreateAnalysisInput = z.infer<typeof createAnalysisSchema>;

@@ -21,7 +21,8 @@ import {
   extractSeniority,
   extractEducation,
   computeJaccardSimilarity,
-  SENIORITY_LEVELS
+  SENIORITY_LEVELS,
+  RELATED_SKILLS
 } from './utils.js';
 
 const WEIGHT_SKILLS = 0.40;
@@ -68,16 +69,22 @@ export function scoreSkills(resumeText: string, jdText: string): SkillsBreakdown
 
   const matchedSkills: string[] = [];
   const missingSkills: string[] = [];
+  let relatedBonus = 0;
 
   for (const skill of jdSkills) {
     if (resumeSkillSet.has(skill)) {
       matchedSkills.push(skill);
     } else {
       missingSkills.push(skill);
+      const related = RELATED_SKILLS[skill] || [];
+      if (related.some(r => resumeSkillSet.has(r))) {
+        relatedBonus += 0.5;
+      }
     }
   }
 
-  const matchRatio = matchedSkills.length / jdSkills.length;
+  const effectiveMatches = matchedSkills.length + relatedBonus;
+  const matchRatio = Math.min(effectiveMatches / jdSkills.length, 1);
   const rawScore = Math.round(matchRatio * 100);
 
   return {
@@ -92,7 +99,11 @@ export function scoreSkills(resumeText: string, jdText: string): SkillsBreakdown
 /**
  * Evaluates years of experience and seniority level.
  */
-export function scoreExperience(resumeText: string, jdText: string): ExperienceBreakdown {
+export function scoreExperience(
+  resumeText: string,
+  jdText: string,
+  hasDomainOverlap: boolean = true
+): ExperienceBreakdown {
   const reqYears = extractYearsOfExperience(jdText);
   const candYears = extractYearsOfExperience(resumeText);
   const reqSeniority = extractSeniority(jdText);
@@ -101,7 +112,11 @@ export function scoreExperience(resumeText: string, jdText: string): ExperienceB
   let yearsScore = 75; // Baseline if neither specifies
   let levelMatch: ExperienceBreakdown['matchLevel'] = 'neutral';
 
-  if (reqYears !== null && candYears !== null) {
+  if (!hasDomainOverlap) {
+    // When candidate has zero matching or transferable skills, experience is unrelated
+    yearsScore = 20;
+    levelMatch = 'underqualified';
+  } else if (reqYears !== null && candYears !== null) {
     if (candYears >= reqYears) {
       yearsScore = 100;
       levelMatch = candYears > reqYears ? 'exceeds' : 'exact';
@@ -126,7 +141,9 @@ export function scoreExperience(resumeText: string, jdText: string): ExperienceB
 
   // Factor in seniority title matching
   let seniorityScore = 75;
-  if (reqSeniority && candSeniority) {
+  if (!hasDomainOverlap) {
+    seniorityScore = 15;
+  } else if (reqSeniority && candSeniority) {
     const reqLevel = SENIORITY_LEVELS.find(l => l.level === reqSeniority);
     const candLevel = SENIORITY_LEVELS.find(l => l.level === candSeniority);
 
@@ -139,7 +156,7 @@ export function scoreExperience(resumeText: string, jdText: string): ExperienceB
       }
     }
   } else if (reqSeniority && !candSeniority) {
-    seniorityScore = 50;
+    seniorityScore = 40;
   }
 
   const combinedScore = Math.round((yearsScore * 0.6) + (seniorityScore * 0.4));
@@ -182,9 +199,8 @@ export function scoreRelevance(resumeText: string, jdText: string): RelevanceBre
     }
   }
 
-  // Jaccard for text typically ranges from 0.05 to 0.40 in domain-matching text
-  // Scale dynamically to 0-100 curve
-  const scaledScore = Math.min(Math.round((jaccard / 0.35) * 100), 100);
+  // Jaccard for text typically ranges from 0.03 to 0.25 in resume-to-JD comparisons
+  const scaledScore = Math.min(Math.round((jaccard / 0.18) * 100), 100);
 
   return {
     score: scaledScore,
@@ -223,7 +239,7 @@ export function scoreEducation(resumeText: string, jdText: string): EducationBre
       score = 65;
     } else {
       // Required degree but candidate has none found
-      score = 30;
+      score = 10;
     }
   } else if (candDegrees.length > 0) {
     // No specific requirement but candidate holds higher education
@@ -261,7 +277,8 @@ export function calculateScore(input: AnalyzeResumeInput): AnalyzeResumeResult {
   }
 
   const skills = scoreSkills(resume, jobDescription);
-  const experience = scoreExperience(resume, jobDescription);
+  const hasDomainOverlap = skills.matchedSkills.length > 0 || skills.score > 0;
+  const experience = scoreExperience(resume, jobDescription, hasDomainOverlap);
   const relevance = scoreRelevance(resume, jobDescription);
   const education = scoreEducation(resume, jobDescription);
 

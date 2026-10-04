@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, and Phase 4 Complete ✓  
-**Next Active Phase**: **Phase 5 — JEV Engine (Isolated Module)**
+**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 Complete ✓  
+**Next Active Phase**: **Phase 7 — Frontend: Auth & Dashboard Shell**
 
 ---
 
@@ -14,9 +14,9 @@
 | **Phase 2** | Authentication API | ✅ Complete | JWT HTTP-only cookies, register/login/me/logout, `passwordHash` hidden, `test-auth.sh` |
 | **Phase 3** | Resume Upload API | ✅ Complete | Multer PDF upload, text extraction, user scoping, ownership checks, `test-resume.sh` |
 | **Phase 4** | Job Descriptions API | ✅ Complete | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping, ownership checks, `test-job.sh` |
-| **Phase 5** | JEV Scoring Engine | ⏳ **Next Up** | Isolated pure scoring function, zero framework dependencies, unit tests |
-| **Phase 6** | Analysis API | ⏳ Pending | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis` |
-| **Phase 7** | Frontend: Auth & Dashboard | ⏳ Pending | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist) |
+| **Phase 5** | JEV Scoring Engine | ✅ Complete | Isolated pure scoring function, zero framework dependencies, 13/13 unit tests pass |
+| **Phase 6** | Analysis API | ✅ Complete | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis`, `test-analysis.sh` passes 100% |
+| **Phase 7** | Frontend: Auth & Dashboard | ⏳ **Next Up** | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist) |
 | **Phase 8** | End-to-End Wiring Pass | ⏳ Pending | 14-step Definition of Done verification, end-to-end integration |
 | **Phase 9** | Security & Error-Handling Pass | ⏳ Pending | Centralized error sanitization, leak checks, penetration & ownership audits |
 
@@ -112,13 +112,68 @@ Implemented per `CLAUDE.md` section 8 and verified:
 
 ---
 
-## ⏳ NEXT STEP — Phase 5: JEV Engine (Isolated Module)
+## ✅ Phase 5 — JEV Scoring Engine
 
-**Goal:** Implement a pure, deterministic, framework-free scoring function.
+Implemented per `AGENTS.md` and verified:
 
-### Requirements per CLAUDE.md:
-1. **Location**: `apps/api/src/engine/jev/` (`index.ts`, `scorer.ts`, `types.ts`, `utils.ts`)
-2. **Contract**: `analyzeResume({ resume, jobDescription }) -> { score }` (returns score 0–100)
-3. **Hard Isolation Constraint**: Must not import Express, Prisma, HTTP types, auth, cookies, or frontend code. Takes plain strings and returns a number.
-4. **Scoring Logic**: Keyword/skill matching, experience matching, etc.
-5. **Unit Tests**: Standalone unit tests running against `analyzeResume()` in total isolation (no database or running API needed).
+**Module Architecture & Isolation:**
+- Located at `apps/api/src/engine/jev/` (`index.ts`, `scorer.ts`, `types.ts`, `utils.ts`)
+- Pure contract: `analyzeResume({ resume, jobDescription }) -> { score, breakdown }`
+- **Zero Framework Imports**: Strictly no Express, Prisma, HTTP, database, auth, cookies, or frontend imports.
+- Pure string and statistical algorithms: skill dictionary matching, related transferable skills, years extraction, seniority weighting, education matching, and Jaccard token similarity with suffix stemming.
+- Deterministic score clamped to `[0, 100]` with multi-dimensional breakdown.
+
+**Verified:**
+- ✓ 13/13 unit tests in `apps/api/src/engine/jev/jev.test.ts` pass in complete isolation (`npm test --workspace=@jev/api`)
+- ✓ Verified strong matching candidate scores high (>= 80)
+- ✓ Verified partial matching candidate scores moderate (30–75)
+- ✓ Verified unrelated candidate scores low (< 30)
+- ✓ Verified sub-millisecond execution with zero network/DB calls
+
+---
+
+## ✅ Phase 6 — Analysis API (Wires Everything Together)
+
+Implemented per `AGENTS.md` and verified:
+
+**Endpoints:**
+- `POST /api/analysis` — Protected by `authMiddleware`, validates payload with Zod (`resumeId`, `jobDescriptionId`), checks user ownership of both resume and job description (returns 404 on ownership mismatch), calls `analyzeResume()` from isolated JEV engine, stores Analysis in PostgreSQL, and returns `{ id, score, analysis }`.
+- `GET /api/analysis` — Protected by `authMiddleware`, lists all analyses owned by authenticated user ordered by `createdAt` descending, including resume and job description summaries.
+- `GET /api/analysis/:id` — Protected by `authMiddleware`, retrieves a single analysis with user ownership validation and computes full score breakdown for detail display.
+- `DELETE /api/analysis/:id` — Protected by `authMiddleware`, deletes an analysis record ensuring user ownership.
+
+**Architecture & Security:**
+- Controller -> Service -> Prisma architecture maintained (`analysis.controller.ts`, `analysis.service.ts`, `analysis.routes.ts`)
+- Validation schema created in `apps/api/src/utils/validation.ts` (`createAnalysisSchema`)
+- Shared TypeScript types added to `packages/shared/src/index.ts` (`CreateAnalysisInput`, `AnalysisDto`, `AnalysisDetailDto`, `AnalysisListItemDto`)
+- Strict ownership isolation enforced: all queries are filtered by `userId: req.user.id`
+- Comprehensive end-to-end test script at `apps/api/test-analysis.sh` passes 100%:
+  - ✓ User A & User B registration and login
+  - ✓ User A & User B resume upload & job description creation
+  - ✓ Legitimate analysis generation with accurate score computation
+  - ✓ Blocked Cross-user attack 1: User A using User B's resume (rejected with 404)
+  - ✓ Blocked Cross-user attack 2: User A using User B's job description (rejected with 404)
+  - ✓ Blocked Cross-user attack 3: User B analyzing User A's data (rejected with 404)
+  - ✓ Isolated list retrieval: User A sees their analysis; User B sees 0 analyses
+  - ✓ Individual retrieval verification with full score breakdown
+  - ✓ Cross-user delete prevention (rejected with 404)
+  - ✓ Analysis deletion by owner (200 OK followed by 404 verification)
+  - ✓ Unauthenticated request rejection (rejected with 401)
+
+---
+
+## ⏳ NEXT STEP — Phase 7: Frontend: Auth & Dashboard Shell
+
+**Goal:** Login, register, and a dashboard that can call the API, built with Next.js + Tailwind adhering strictly to `DESIGN.md`.
+
+### Requirements per AGENTS.md & DESIGN.md:
+1. **Pages**:
+   - `/login`, `/register`: Monospace, high-contrast forms calling the auth API, redirect to `/dashboard` on success.
+   - `/dashboard`: Resume upload control + job description input + "Analyze" button, plus a list of previous analyses.
+   - `/dashboard/analysis/[id]`: Detail view displaying the match score prominent callout (`XX/100`) and the multi-dimensional breakdown.
+2. **Design Language (`DESIGN.md`)**:
+   - Color palette: Cream background (`#F4F1E8`), white cards (`#FFFFFF`), solid black rules (`#000000`, 1.5–2px), amber accent (`#F2B518`).
+   - Font: Monospace throughout (`IBM Plex Mono`, `JetBrains Mono`, `monospace`).
+   - Corners: Corner radius `0` everywhere (no rounded corners).
+   - Uppercase headers, lowercase body/captions, zero soft drop-shadows or gradients.
+

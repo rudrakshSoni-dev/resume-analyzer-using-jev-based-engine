@@ -67,6 +67,11 @@ export interface AnalyzeResumeOutput {
   score: number;
 }
 
+export interface CreateAnalysisInput {
+  resumeId: string;
+  jobDescriptionId: string;
+}
+
 export interface AnalysisDto {
   id: string;
   userId: string;
@@ -83,4 +88,14 @@ export interface AnalysisSummaryDto {
   jobDescriptionId: string;
   score: number;
   createdAt: string;
+}
+
+export interface AnalysisDetailDto extends AnalysisDto {
+  resume: ResumeDto;
+  jobDescription: JobDescriptionDto;
+}
+
+export interface AnalysisListItemDto extends AnalysisDto {
+  resume: ResumeSummaryDto;
+  jobDescription: JobDescriptionSummaryDto;
 }
