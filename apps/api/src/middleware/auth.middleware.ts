@@ -23,7 +23,7 @@ export async function authMiddleware(
 ): Promise<void> {
   try {
     // Extract token from HTTP-only cookie
-    const token = req.cookies.token;
+    const token = req.cookies?.token;
 
     if (!token) {
       res.status(401).json({

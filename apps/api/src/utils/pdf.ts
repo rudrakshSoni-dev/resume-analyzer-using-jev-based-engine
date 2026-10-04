@@ -10,6 +10,13 @@ export interface ExtractedPdf {
  * Cleans control characters and validates non-empty text.
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
+  if (!buffer || buffer.length < 4 || buffer.toString('ascii', 0, 4) !== '%PDF') {
+    const error: any = new Error('Invalid PDF file format: missing %PDF header');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const parser = new PDFParse({ data: buffer });
   try {
     const data = await parser.getText();

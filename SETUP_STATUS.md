@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phases 0 through 8 Complete ✓  
-**Next Active Phase**: **Phase 9 — Security & Error-Handling Pass**
+**Current Status**: All Phases 0 through 9 Complete ✓  
+**All Phases Finished**: Production-ready, fully hardened, strictly scoped, and verified!
 
 ---
 
@@ -18,7 +18,7 @@
 | **Phase 6** | Analysis API | ✅ Complete | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis`, `test-analysis.sh` passes 100% |
 | **Phase 7** | Frontend: Auth & Dashboard | ✅ Complete | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist), API proxy |
 | **Phase 8** | End-to-End Wiring Pass | ✅ Complete | 14-step Definition of Done passed 100%, `test-e2e-phase8.sh`, proxy & SSR verified |
-| **Phase 9** | Security & Error-Handling Pass | ⏳ **Next Up** | Centralized error sanitization, leak checks, penetration & ownership audits |
+| **Phase 9** | Security & Error-Handling Pass | ✅ Complete | Centralized error sanitization, secret scrubbing, magic byte PDF checks, `test-security-phase9.sh` passes 100% |
 
 ---
 
@@ -216,15 +216,40 @@ Implemented per `AGENTS.md` section 21 and verified:
 
 ---
 
-## ⏳ NEXT STEP — Phase 9: Security & Error-Handling Pass
+## ✅ Phase 9 — Security & Error-Handling Pass
 
-**Goal:** Close the gaps that don't show up in happy-path testing.
+Implemented per `AGENTS.md` sections 12, 13, and 17 and verified:
 
-### Requirements per AGENTS.md:
-- Review against `AGENTS.md` sections 12, 13, and 17.
-- Confirm no endpoint returns `passwordHash`, `DATABASE_URL`, or `JWT_SECRET`.
-- Confirm every resource-owning endpoint checks `userId`, not just resource ID.
-- Confirm centralized error handling returns the `{ error: { message } }` shape with no stack traces leaking in production.
-- Confirm file upload validates type and size before processing.
+**Audits & Hardening Implemented:**
+1. **Zero Secret Leakage (`passwordHash`, `DATABASE_URL`, `JWT_SECRET`)**:
+   - Confirmed no endpoints (register, login, me, resumes, jobs, analysis) leak `passwordHash`.
+   - Added automatic secret redaction in centralized error middleware preventing database connection strings or JWT secrets from ever leaking in error messages.
+   - Disabled `X-Powered-By: Express` fingerprint header (`app.disable('x-powered-by')`).
+
+2. **Centralized Error Handling Shape (`{ error: { message } }`)**:
+   - Fixed error middleware to properly inspect `err.statusCode || err.status || 500`.
+   - Preserved descriptive client error messages for 4xx status codes in all environments.
+   - Masked 500 server errors as `"Internal server error"` in production with zero stack trace leakage.
+   - Explicitly handled malformed JSON payload errors from `express.json()` returning HTTP 400 with `{ error: { message: "Invalid JSON payload" } }`.
+   - Added fallback JSON 404 handler for undefined routes returning `{ error: { message: "Route not found: ..." } }` instead of default Express HTML.
+
+3. **File Upload Security & Validation**:
+   - Enforced `.pdf` file extension and `application/pdf` MIME type.
+   - Enforced 5MB file size limit returning clear HTTP 400 error.
+   - Added PDF magic bytes verification (`%PDF` / `0x25 0x50 0x44 0x46`) before parsing to reject fake or corrupt files before parser execution.
+
+4. **Strict User Scoping & Ownership Isolation**:
+   - Confirmed all resource-owning endpoints (`resumes`, `jobs`, `analysis`) strictly query and filter by `userId: req.user.id`.
+   - Cross-user attempts by User B to view, delete, or analyze User A's data return HTTP 404 without information disclosure.
+
+5. **Session Termination**:
+   - Updated `logout` to pass identical security options (`httpOnly`, `sameSite: strict`, `secure`) to `clearCookie`.
+
+**Verified:**
+- ✓ All assertions across 5 test groups pass via automated test script `test-security-phase9.sh`.
+- ✓ Unit tests in isolation (`npm test --workspace=@jev/api`) pass 13/13.
+- ✓ Phase 2, 3, 4, 6 test scripts pass 100%.
+- ✓ Monorepo typecheck clean with 0 errors (`npm run typecheck`).
+
 
 
