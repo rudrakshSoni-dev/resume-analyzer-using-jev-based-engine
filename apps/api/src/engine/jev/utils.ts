@@ -44,6 +44,8 @@ export const KNOWN_SKILLS = [
   'tdd', 'security', 'oauth', 'jwt', 'mvc', 'clean architecture', 'solid principles'
 ];
 
+const KNOWN_SKILL_SET = new Set(KNOWN_SKILLS);
+
 /**
  * Related skill families for partial credit across transferable technologies.
  */
@@ -75,7 +77,7 @@ export function normalizeText(text: string): string {
  * Simple suffix stemmer to unify common inflections (e.g., developer/development, applications/application).
  */
 export function stemToken(token: string): string {
-  if (token.length <= 4) return token;
+  if (token.length <= 4 || /[^a-z]/.test(token) || KNOWN_SKILL_SET.has(token)) return token;
   if (token.endsWith('ing') && token.length > 5) return token.slice(0, -3);
   if (token.endsWith('tion') && token.length > 6) return token.slice(0, -4);
   if (token.endsWith('ment') && token.length > 6) return token.slice(0, -4);

@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE_URL="http://localhost:3001/api"
+BASE_URL="http://localhost:3002/api"
 COOKIE_A="/tmp/cookie-a.txt"
 COOKIE_B="/tmp/cookie-b.txt"
 SAMPLE_PDF="/tmp/sample-resume.pdf"

@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE_URL="http://localhost:3001/api/auth"
+BASE_URL="http://localhost:3002/api/auth"
 COOKIE_FILE="/tmp/auth-test-cookies.txt"
 
 echo "=== Phase 2 Authentication Tests ==="

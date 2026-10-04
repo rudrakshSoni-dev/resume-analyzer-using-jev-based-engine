@@ -90,12 +90,53 @@ export interface AnalysisSummaryDto {
   createdAt: string;
 }
 
-export interface AnalysisDetailDto extends AnalysisDto {
-  resume: ResumeDto;
-  jobDescription: JobDescriptionDto;
-}
-
 export interface AnalysisListItemDto extends AnalysisDto {
   resume: ResumeSummaryDto;
   jobDescription: JobDescriptionSummaryDto;
+}
+
+export interface SkillsBreakdownDto {
+  score: number;
+  weight: number;
+  matchedSkills: string[];
+  missingSkills: string[];
+  totalRequiredSkills: number;
+}
+
+export interface ExperienceBreakdownDto {
+  score: number;
+  weight: number;
+  requiredYears: number | null;
+  extractedYears: number | null;
+  requiredSeniority: string | null;
+  detectedSeniority: string | null;
+  matchLevel: 'exact' | 'exceeds' | 'partial' | 'underqualified' | 'neutral';
+}
+
+export interface RelevanceBreakdownDto {
+  score: number;
+  weight: number;
+  tokenOverlapRatio: number;
+  matchedKeywords: string[];
+}
+
+export interface EducationBreakdownDto {
+  score: number;
+  weight: number;
+  requiredDegree: string | null;
+  detectedDegrees: string[];
+  matchedDegrees: string[];
+}
+
+export interface ScoringBreakdownDto {
+  skills: SkillsBreakdownDto;
+  experience: ExperienceBreakdownDto;
+  relevance: RelevanceBreakdownDto;
+  education: EducationBreakdownDto;
+}
+
+export interface AnalysisDetailDto extends AnalysisDto {
+  resume: ResumeDto;
+  jobDescription: JobDescriptionDto;
+  breakdown: ScoringBreakdownDto;
 }

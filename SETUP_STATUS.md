@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 Complete ✓  
-**Next Active Phase**: **Phase 7 — Frontend: Auth & Dashboard Shell**
+**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 Complete ✓  
+**Next Active Phase**: **Phase 8 — End-to-End Wiring Pass**
 
 ---
 
@@ -16,8 +16,8 @@
 | **Phase 4** | Job Descriptions API | ✅ Complete | CRUD endpoints (`POST`, `GET`, `DELETE`), user scoping, ownership checks, `test-job.sh` |
 | **Phase 5** | JEV Scoring Engine | ✅ Complete | Isolated pure scoring function, zero framework dependencies, 13/13 unit tests pass |
 | **Phase 6** | Analysis API | ✅ Complete | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis`, `test-analysis.sh` passes 100% |
-| **Phase 7** | Frontend: Auth & Dashboard | ⏳ **Next Up** | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist) |
-| **Phase 8** | End-to-End Wiring Pass | ⏳ Pending | 14-step Definition of Done verification, end-to-end integration |
+| **Phase 7** | Frontend: Auth & Dashboard | ✅ Complete | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist), API proxy |
+| **Phase 8** | End-to-End Wiring Pass | ⏳ **Next Up** | 14-step Definition of Done verification, end-to-end integration |
 | **Phase 9** | Security & Error-Handling Pass | ⏳ Pending | Centralized error sanitization, leak checks, penetration & ownership audits |
 
 ---
@@ -162,18 +162,38 @@ Implemented per `AGENTS.md` and verified:
 
 ---
 
-## ⏳ NEXT STEP — Phase 7: Frontend: Auth & Dashboard Shell
+## ✅ Phase 7 — Frontend: Auth & Dashboard Shell
 
-**Goal:** Login, register, and a dashboard that can call the API, built with Next.js + Tailwind adhering strictly to `DESIGN.md`.
+Implemented per `AGENTS.md` Phase 7 and verified:
 
-### Requirements per AGENTS.md & DESIGN.md:
-1. **Pages**:
-   - `/login`, `/register`: Monospace, high-contrast forms calling the auth API, redirect to `/dashboard` on success.
-   - `/dashboard`: Resume upload control + job description input + "Analyze" button, plus a list of previous analyses.
-   - `/dashboard/analysis/[id]`: Detail view displaying the match score prominent callout (`XX/100`) and the multi-dimensional breakdown.
-2. **Design Language (`DESIGN.md`)**:
-   - Color palette: Cream background (`#F4F1E8`), white cards (`#FFFFFF`), solid black rules (`#000000`, 1.5–2px), amber accent (`#F2B518`).
-   - Font: Monospace throughout (`IBM Plex Mono`, `JetBrains Mono`, `monospace`).
-   - Corners: Corner radius `0` everywhere (no rounded corners).
-   - Uppercase headers, lowercase body/captions, zero soft drop-shadows or gradients.
+**Architecture & Wiring:**
+- **Next.js 15.5** (React 19) configured with a proxy rewrite in `next.config.ts` sending `/api/*` to `localhost:3002`.
+- `HttpOnly` cookie-based auth naturally supported via same-origin frontend requests.
+- Lightweight `middleware.ts` handles redirection for logged-out users (`/dashboard` -> `/login`) and logged-in users (`/login` -> `/dashboard`).
+- Custom `fetchApi` wrapper in `src/lib/api.ts` orchestrates cross-package DTO types and uniform error handling.
+
+**UI Implementation (`DESIGN.md` rules enforced):**
+- Strictly monospace (`IBM Plex Mono`).
+- Brutalist borders (`border-2 border-black`), no `border-radius`, solid black accenting.
+- Components built from scratch in `ui.tsx`: `SectionLabel`, `Panel`, `Button`, `Input`, `Textarea`, `ScoreCallout`, `ScoreBreakdown`.
+- **Pages**:
+  - `/login`, `/register`: Form flows correctly directing to `/dashboard`.
+  - `/dashboard`: Layout wrapper with Auth context, multi-step resume analysis execution page, history list view.
+  - `/dashboard/analysis/[id]`: Detailed view showing `ScoreCallout` and `ScoreBreakdown` bar charts based on JEV engine multidimensional results.
+
+**Verified:**
+- ✓ `npm run build --workspace=@jev/web` produces an optimized production build.
+- ✓ `npm run typecheck` across workspaces passes cleanly.
+- ✓ Tested cross-origin DTO shapes manually matching API specifications.
+
+---
+
+## ⏳ NEXT STEP — Phase 8: End-to-End Wiring Pass
+
+**Goal:** Close every gap between frontend and backend found in manual use.
+
+### Requirements per AGENTS.md:
+- Review the 14 steps in `CLAUDE.md` section 21 (Definition of Done).
+- Actively verify the end-to-end user flow: register, login, upload, paste JD, analyze, see score, log out, log back in, confirm history persisted.
+- Fix UI discrepancies and API mismatch regressions.
 
