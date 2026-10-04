@@ -1,8 +1,8 @@
-# JEV Resume Analyzer — Claude Code Build Plan
+# JEV Resume Analyzer — Agent Build Plan
 
-This turns your `CLAUDE.md` into an execution sequence: 10 phases, each scoped
-to one Claude Code session, each ending in something you can actually verify
-before moving on. Don't let Claude jump ahead to Phase 5 while Phase 2 is
+This file (`AGENTS.md`, converted from `CLAUDE.md`) defines the execution sequence: 10 phases, each scoped
+to one session, each ending in something you can actually verify
+before moving on. Don't jump ahead to Phase 5 while Phase 2 is
 still shaky — the ownership bugs in this app (leaking another user's resume)
 come from skipping verification, not from bad code generation.
 
@@ -40,7 +40,7 @@ phase.
 
 Prompt:
 ```
-Read CLAUDE.md fully before doing anything else.
+Read AGENTS.md fully before doing anything else.
 
 Set up the monorepo skeleton exactly as described in section 4 (Repository
 Structure). Initialize:
@@ -53,7 +53,7 @@ Do not add Prisma, auth, or any feature code yet. Do not add Docker, Redis,
 or any infra beyond what section 18 (Development Principles) allows.
 Create a .env.example in apps/api matching section 14.
 
-When done, confirm the folder structure matches CLAUDE.md section 4 exactly.
+When done, confirm the folder structure matches AGENTS.md section 4 exactly.
 ```
 
 **Verify:** folder tree matches section 4. `.env` is in `.gitignore`. Nothing
@@ -68,7 +68,7 @@ committed under `apps/api/.env`.
 Prompt:
 ```
 Implement prisma/schema.prisma in apps/api using the models and
-relationships in CLAUDE.md section 5 exactly: User, Resume, JobDescription,
+relationships in AGENTS.md section 5 exactly: User, Resume, JobDescription,
 Analysis, with the relations listed there.
 
 Do not add fields that aren't in the spec. Run prisma migrate dev and confirm
@@ -88,7 +88,7 @@ API yet.
 
 Prompt:
 ```
-Implement authentication per CLAUDE.md sections 6 and 12:
+Implement authentication per AGENTS.md sections 6 and 12:
 - POST /api/auth/register — hash password with bcrypt or Argon2, never store
   plaintext
 - POST /api/auth/login — verify password, issue JWT in an HTTP-only cookie
@@ -103,7 +103,7 @@ Write a quick manual test plan (curl commands or a short script) I can run
 to confirm register -> login -> me -> logout works end to end.
 ```
 
-**Verify:** run the test plan Claude gives you. Specifically check the
+**Verify:** run the test plan the agent gives you. Specifically check the
 response body from every auth endpoint for a leaked `passwordHash` field —
 this is the single most common regression here.
 
@@ -116,7 +116,7 @@ stored.
 
 Prompt:
 ```
-Implement resume upload per CLAUDE.md section 7:
+Implement resume upload per AGENTS.md section 7:
 - POST /api/resumes using Multer, multipart/form-data, field name "resume"
 - Restrict to PDF only, enforce a file size limit (section 13)
 - Extract text on upload, store it in Resume.rawText
@@ -141,7 +141,7 @@ the ownership check from section 5; test it now, not after Phase 6.
 
 Prompt:
 ```
-Implement the Job Description API per CLAUDE.md section 8:
+Implement the Job Description API per AGENTS.md section 8:
 POST /api/jobs, GET /api/jobs, DELETE /api/jobs/:id.
 
 Same ownership-scoping pattern as resumes — every query filtered by
@@ -155,12 +155,12 @@ rather than inventing a new one.
 
 ## Phase 5 — JEV engine (isolated module)
 
-**Goal:** a pure, framework-free scoring function. This is the piece CLAUDE.md
+**Goal:** a pure, framework-free scoring function. This is the piece AGENTS.md
 is most protective of — keep it that way.
 
 Prompt:
 ```
-Implement the JEV engine per CLAUDE.md sections 3, 10, and 11.
+Implement the JEV engine per AGENTS.md sections 3, 10, and 11.
 
 Location: apps/api/src/engine/jev/ (index.ts, scorer.ts, types.ts, utils.ts)
 
@@ -190,7 +190,7 @@ DB needed) — if they need a running API to pass, the isolation failed.
 
 Prompt:
 ```
-Implement POST /api/analysis per CLAUDE.md section 9:
+Implement POST /api/analysis per AGENTS.md section 9:
 1. Authenticate the request
 2. Validate the resume belongs to the authenticated user
 3. Validate the job description belongs to the authenticated user
@@ -216,7 +216,7 @@ validation before it ever reaches the JEV engine.
 
 Prompt:
 ```
-Implement the frontend pages per CLAUDE.md sections 15–16:
+Implement the frontend pages per AGENTS.md sections 15–16:
 - /login, /register — forms calling the auth API, redirect to /dashboard
   on success
 - /dashboard — resume upload control + job description input + "Analyze"
@@ -230,7 +230,7 @@ large and clear).
 
 **Verify:** click through register → login → dashboard manually in the
 browser. Don't just trust that the API contract matches — the field names
-Claude's frontend expects and the field names the backend returns are a
+the frontend expects and the field names the backend returns are a
 classic mismatch point.
 
 ---
@@ -247,7 +247,7 @@ abstractions, and re-run through the flow in section 21 (Definition of
 Done) after each fix.
 ```
 
-**Verify:** run through all 14 steps in CLAUDE.md section 21 yourself, in
+**Verify:** run through all 14 steps in AGENTS.md section 21 yourself, in
 order, as a real user would — register, login, upload, paste JD, analyze,
 see score, log out, log back in, confirm history persisted.
 
@@ -259,7 +259,7 @@ see score, log out, log back in, confirm history persisted.
 
 Prompt:
 ```
-Do a security and error-handling review against CLAUDE.md sections 12, 13,
+Do a security and error-handling review against AGENTS.md sections 12, 13,
 and 17:
 - Confirm no endpoint returns passwordHash, DATABASE_URL, or JWT_SECRET
 - Confirm every resource-owning endpoint checks userId, not just resource ID
@@ -280,13 +280,13 @@ client is the failure mode to catch here.
 
 - **Don't skip the ownership tests.** Every phase from 3 onward has one.
   This app's whole trust boundary is "can user A see user B's data,"
-  and CLAUDE.md calls this out three separate times for a reason.
-- **Keep JEV pure.** If a later phase asks Claude to "just quickly add
+  and AGENTS.md calls this out three separate times for a reason.
+- **Keep JEV pure.** If a later phase asks to "just quickly add
   the user's name to the score calculation for logging," that's the
   moment section 3's isolation rule gets violated. Push back on it.
 - **One phase per session where possible.** It keeps the diff reviewable
-  and keeps Claude's context focused on one contract instead of the
+  and keeps context focused on one contract instead of the
   whole app at once.
 - **Use Plan Mode's output as your commit message scaffold** — the task
-  list Claude proposes before executing is usually a good changelog for
+  list proposed before executing is usually a good changelog for
   that phase once it's done.

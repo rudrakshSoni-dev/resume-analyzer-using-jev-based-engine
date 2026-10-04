@@ -60,7 +60,7 @@ jev-resume-analyzer/
 │           └── schema.prisma
 │
 ├── packages/shared/
-├── CLAUDE.md            # build spec / instructions for Claude Code
+├── AGENTS.md            # build spec / instructions for AI agents
 ├── DESIGN.md            # visual design system
 └── README.md
 ```
@@ -130,5 +130,5 @@ unless explicitly required.
 <!-- 
 ## Status
 
-Under active development. See `CLAUDE.md` for the full build plan and
+Under active development. See `AGENTS.md` for the full build plan and
 `DESIGN.md` for the visual design system. -->

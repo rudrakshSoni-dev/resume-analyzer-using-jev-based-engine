@@ -1,7 +1,7 @@
 # JEV Resume Analyzer — Setup & Phase Status
 
-**Current Status**: Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, and Phase 7 Complete ✓  
-**Next Active Phase**: **Phase 8 — End-to-End Wiring Pass**
+**Current Status**: Phases 0 through 8 Complete ✓  
+**Next Active Phase**: **Phase 9 — Security & Error-Handling Pass**
 
 ---
 
@@ -17,8 +17,8 @@
 | **Phase 5** | JEV Scoring Engine | ✅ Complete | Isolated pure scoring function, zero framework dependencies, 13/13 unit tests pass |
 | **Phase 6** | Analysis API | ✅ Complete | `POST /api/analysis` (orchestrating resume + JD + engine), `GET /api/analysis`, `test-analysis.sh` passes 100% |
 | **Phase 7** | Frontend: Auth & Dashboard | ✅ Complete | Next.js UI following `DESIGN.md` (monospace, 0 border-radius, brutalist), API proxy |
-| **Phase 8** | End-to-End Wiring Pass | ⏳ **Next Up** | 14-step Definition of Done verification, end-to-end integration |
-| **Phase 9** | Security & Error-Handling Pass | ⏳ Pending | Centralized error sanitization, leak checks, penetration & ownership audits |
+| **Phase 8** | End-to-End Wiring Pass | ✅ Complete | 14-step Definition of Done passed 100%, `test-e2e-phase8.sh`, proxy & SSR verified |
+| **Phase 9** | Security & Error-Handling Pass | ⏳ **Next Up** | Centralized error sanitization, leak checks, penetration & ownership audits |
 
 ---
 
@@ -27,7 +27,7 @@
 The monorepo structure is fully set up:
 
 ```
-✓ apps/api/          — Express + TypeScript API (port 3001)
+✓ apps/api/          — Express + TypeScript API (port 3002)
 ✓ apps/web/          — Next.js + Tailwind frontend (port 3000)
 ✓ packages/shared/   — Shared types
 ✓ Root workspaces    — npm workspaces configured
@@ -38,7 +38,7 @@ The monorepo structure is fully set up:
 **Verified:**
 - ✓ `npm install` succeeds across all workspaces
 - ✓ `npm run typecheck` passes with 0 errors
-- ✓ API health check works: `GET http://localhost:3001/api/health` → `{"status":"ok"}`
+- ✓ API health check works: `GET http://localhost:3002/api/health` → `{"status":"ok"}`
 - ✓ `.env` is gitignored and `.env.example` is documented
 
 ---
@@ -59,7 +59,7 @@ The monorepo structure is fully set up:
 
 ## ✅ Phase 2 — Authentication
 
-Implemented per `CLAUDE.md` sections 6 and 12:
+Implemented per `AGENTS.md` sections 6 and 12:
 
 **Endpoints:**
 - `POST /api/auth/register` — Hashes password with bcrypt (10 rounds), checks for duplicate email, creates user
@@ -78,7 +78,7 @@ Implemented per `CLAUDE.md` sections 6 and 12:
 
 ## ✅ Phase 3 — Resume Upload
 
-Implemented per `CLAUDE.md` section 7 and verified:
+Implemented per `AGENTS.md` section 7 and verified:
 
 **Endpoints:**
 - `POST /api/resumes` — Protected by `authMiddleware`, parses multipart form-data via Multer (field: `resume`), validates PDF mime/extension and 5MB limit, extracts raw text via `pdf-parse`, stores resume scoped to `req.user.id`
@@ -95,7 +95,7 @@ Implemented per `CLAUDE.md` section 7 and verified:
 
 ## ✅ Phase 4 — Job Descriptions
 
-Implemented per `CLAUDE.md` section 8 and verified:
+Implemented per `AGENTS.md` section 8 and verified:
 
 **Endpoints:**
 - `POST /api/jobs` — Protected by `authMiddleware`, validates payload with Zod (`title`, optional `company`, `description`), creates job description scoped to `req.user.id` (returns HTTP 201)
@@ -188,12 +188,43 @@ Implemented per `AGENTS.md` Phase 7 and verified:
 
 ---
 
-## ⏳ NEXT STEP — Phase 8: End-to-End Wiring Pass
+## ✅ Phase 8 — End-to-End Wiring Pass
 
-**Goal:** Close every gap between frontend and backend found in manual use.
+Implemented per `AGENTS.md` section 21 and verified:
+
+**End-to-End User Flow Verified:**
+1. **User Registration**: `POST /api/auth/register` creates account (HTTP 201).
+2. **User Login**: `POST /api/auth/login` sets HTTP-only `token` cookie (HTTP 200).
+3. **Session Verification**: `GET /api/auth/me` returns current user without `passwordHash`.
+4. **Resume Upload**: `POST /api/resumes` parses PDF via Multer, extracts raw text, stores resume.
+5. **Job Description Creation**: `POST /api/jobs` creates job record scoped to user.
+6. **Trigger Analysis**: `POST /api/analysis` executes pure JEV scoring engine and stores Analysis record.
+7. **Score & Breakdown Validation**: Verified score in expected range (99/100) with multidimensional breakdown.
+8. **History Listing**: `GET /api/analysis` accurately lists past user analyses.
+9. **Single Analysis Detail**: `GET /api/analysis/:id` returns full analysis detail with breakdown.
+10. **Frontend Pages Render**: Next.js `/dashboard` and `/dashboard/analysis/:id` render successfully with HTTP 200.
+11. **Logout**: `POST /api/auth/logout` clears HTTP-only authentication cookie.
+12. **Route Protection**: Middleware intercepts unauthenticated `/dashboard` access and redirects (HTTP 307) to `/login`.
+13. **Session Re-authentication**: Re-login verifies analysis history is persisted and accurately restored.
+14. **Cross-User Data Isolation**: User B attempting to view or delete User A's analysis is strictly rejected with HTTP 404.
+
+**Verified:**
+- ✓ All 14 steps pass via automated end-to-end script `test-e2e-phase8.sh`.
+- ✓ Next.js API proxy rewrite `/api/:path*` -> `http://localhost:3002/api/:path*` verified functional.
+- ✓ Production build (`npm run build --workspace=@jev/web`) succeeds with 0 errors.
+- ✓ All workspace typechecks pass (`npm run typecheck`).
+
+---
+
+## ⏳ NEXT STEP — Phase 9: Security & Error-Handling Pass
+
+**Goal:** Close the gaps that don't show up in happy-path testing.
 
 ### Requirements per AGENTS.md:
-- Review the 14 steps in `CLAUDE.md` section 21 (Definition of Done).
-- Actively verify the end-to-end user flow: register, login, upload, paste JD, analyze, see score, log out, log back in, confirm history persisted.
-- Fix UI discrepancies and API mismatch regressions.
+- Review against `AGENTS.md` sections 12, 13, and 17.
+- Confirm no endpoint returns `passwordHash`, `DATABASE_URL`, or `JWT_SECRET`.
+- Confirm every resource-owning endpoint checks `userId`, not just resource ID.
+- Confirm centralized error handling returns the `{ error: { message } }` shape with no stack traces leaking in production.
+- Confirm file upload validates type and size before processing.
+
 

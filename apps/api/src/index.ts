@@ -10,7 +10,7 @@ import analysisRoutes from './routes/analysis.routes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
