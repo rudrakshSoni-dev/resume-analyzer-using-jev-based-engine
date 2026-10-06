@@ -45,6 +45,17 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Normalize req.url when rewritten by Vercel
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.url.startsWith('/api/index.js') || req.url.startsWith('/api/index')) {
+    const matched = (req.headers['x-matched-path'] as string) || req.originalUrl;
+    if (matched && !matched.startsWith('/api/index')) {
+      req.url = matched;
+    }
+  }
+  next();
+});
+
 // Health check endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
