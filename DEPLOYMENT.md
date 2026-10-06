@@ -63,7 +63,7 @@ git push origin main
    | `JWT_SECRET` | `<cryptographic-secret>` | Secret key for JWT signing |
    | `JWT_EXPIRES_IN` | `7d` | Optional (default: `7d`) |
    | `NODE_ENV` | `production` | Production mode |
-   | `CORS_ORIGIN` | `*` (or your frontend URL) | Can update with frontend domain once deployed |
+   | `CORS_ORIGIN` | `https://resume-analyzer-using-jev-based-eng-delta.vercel.app` | Allowed frontend origin for CORS |
 6. Click **Deploy**.
 7. Once deployed, copy your API URL:  
    👉 E.g., `https://resume-analyzer-api.vercel.app`

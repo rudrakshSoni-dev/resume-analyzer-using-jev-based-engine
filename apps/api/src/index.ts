@@ -14,18 +14,30 @@ const PORT = process.env.PORT || 3002;
 
 app.disable('x-powered-by');
 
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:3000'];
+const configuredOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim().replace(/\/+$/, ''))
+  : [];
+
+const allowedOrigins = Array.from(
+  new Set([
+    'https://resume-analyzer-using-jev-based-eng-delta.vercel.app',
+    ...configuredOrigins,
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
+  ])
+);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        callback(null, true);
-      } else {
-        callback(null, false);
+      // Allow requests with no origin (e.g. server-to-server proxy from Next.js rewrites, curl)
+      if (!origin) {
+        return callback(null, true);
       }
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
     },
     credentials: true,
   })
