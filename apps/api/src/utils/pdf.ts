@@ -1,5 +1,4 @@
 import './polyfills.js';
-import { PDFParse } from 'pdf-parse';
 
 export interface ExtractedPdf {
   text: string;
@@ -18,6 +17,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
     throw error;
   }
 
+  const { PDFParse } = await import('pdf-parse');
   const parser = new PDFParse({ data: buffer });
   try {
     const data = await parser.getText();

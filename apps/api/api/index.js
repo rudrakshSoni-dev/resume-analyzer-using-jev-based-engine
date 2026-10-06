@@ -307,13 +307,13 @@ import { Router as Router2 } from "express";
 import { PrismaClient as PrismaClient2 } from "@prisma/client";
 
 // src/utils/pdf.ts
-import { PDFParse } from "pdf-parse";
 async function extractTextFromPdf(buffer) {
   if (!buffer || buffer.length < 4 || buffer.toString("ascii", 0, 4) !== "%PDF") {
     const error = new Error("Invalid PDF file format: missing %PDF header");
     error.statusCode = 400;
     throw error;
   }
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
     const data = await parser.getText();
