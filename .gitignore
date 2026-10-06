@@ -5,6 +5,9 @@ node_modules/
 
 CLAUDE.md
 SETUP_STATUS.md
+AGENTS.md
+DEPLOYMENT.md
+DEPLOYEMENT.md
 
 # Build outputs
 dist/
@@ -15,8 +18,12 @@ out/
 
 # Environment variables
 .env
+.env.*
 .env.local
 .env.*.local
+*.env
+!.env.example
+!.env.*.example
 
 # Prisma
 prisma/migrations/
