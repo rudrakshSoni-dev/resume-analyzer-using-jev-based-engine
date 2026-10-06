@@ -45,9 +45,17 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// Health check endpoint
+// Health check endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'JEV Resume Analyzer API' });
 });
 
 // Auth routes

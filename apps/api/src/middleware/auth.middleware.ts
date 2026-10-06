@@ -2,11 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { authService } from '../services/auth.service.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || '';
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const error: any = new Error('JWT_SECRET environment variable is missing in server configuration');
+    error.statusCode = 500;
+    throw error;
+  }
+  return secret;
+};
 
 interface JWTPayload {
   userId: string;
@@ -32,10 +36,12 @@ export async function authMiddleware(
       return;
     }
 
+    const secret = getJwtSecret();
+
     // Verify and decode JWT
     let decoded: JWTPayload;
     try {
-      decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+      decoded = jwt.verify(token, secret) as JWTPayload;
     } catch (error) {
       res.status(401).json({
         error: { message: 'Invalid or expired token' },

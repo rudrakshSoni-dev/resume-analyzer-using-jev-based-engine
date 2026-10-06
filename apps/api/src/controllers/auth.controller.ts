@@ -4,12 +4,17 @@ import { authService } from '../services/auth.service.js';
 import { registerSchema, loginSchema } from '../utils/validation.js';
 import { ZodError } from 'zod';
 
-const JWT_SECRET = process.env.JWT_SECRET || '';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const error: any = new Error('JWT_SECRET environment variable is missing in server configuration');
+    error.statusCode = 500;
+    throw error;
+  }
+  return secret;
+};
 
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+const getJwtExpiresIn = (): string => process.env.JWT_EXPIRES_IN || '7d';
 
 /**
  * POST /api/auth/register
@@ -72,12 +77,13 @@ export async function login(
     }
 
     // Sign JWT with user ID
+    const secret = getJwtSecret();
     const signOptions: SignOptions = {
-      expiresIn: JWT_EXPIRES_IN as any,
+      expiresIn: getJwtExpiresIn() as any,
     };
     const token = jwt.sign(
       { userId: user.id },
-      JWT_SECRET,
+      secret,
       signOptions
     );
 
