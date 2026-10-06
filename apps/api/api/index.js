@@ -313,6 +313,9 @@ async function extractTextFromPdf(buffer) {
     error.statusCode = 400;
     throw error;
   }
+  if (typeof globalThis.pdfjsWorker === "undefined") {
+    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  }
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
