@@ -11,11 +11,25 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 
 app.disable('x-powered-by');
 
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:3000'];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -89,9 +103,12 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
+export default app;
 export { app };
 
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
+}
 

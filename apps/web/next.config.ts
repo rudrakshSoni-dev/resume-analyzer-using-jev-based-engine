@@ -1,5 +1,4 @@
-/** @type {import('next').NextConfig} */
-const API_URL = process.env.API_URL || 'http://localhost:3002';
+const API_URL = (process.env.API_URL || 'http://localhost:3002').replace(/\/+$/, '');
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
